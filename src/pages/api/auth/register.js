@@ -25,8 +25,8 @@ export default async function handler(req, res) {
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       const result = await query(
-        'INSERT INTO user (user_id, username, name, password, role_id) VALUES (?, ?, ?, ?, ?)',
-        [user_id, username, name, hashedPassword, role_id]
+        'INSERT INTO user (username, name, password, role_id) VALUES (?, ?, ?, ?)',
+        [username, name, hashedPassword, role_id]
       );
 
       return res.status(StatusCode.CREATED).json(createApiResponse({ userId: user_id, username: username }, StatusCode.CREATED, 'User registered successfully.'));
