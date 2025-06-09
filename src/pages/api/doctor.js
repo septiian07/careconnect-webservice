@@ -71,6 +71,78 @@ export default async function handler(req, res) {
         console.error('Error add doctors:', error);
         return res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error add doctors.'));
       }
+    } else if (req.method === 'PUT') {
+      const { doctorId } = req.query;
+
+      if (!doctorId) {
+        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Doctor ID is required.'));
+      }
+      const { doctor_name, specialist, gender, phone, biography, hospital, schedules } = req.body;
+
+      if (!Array.isArray(schedules) || schedules.length === 0) {
+        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Schedules must be a non-empty array.'));
+      }
+
+      try {
+        await query(
+          'UPDATE doctor SET doctor_name = ?, specialist = ?, gender = ?, phone = ?, biography = ?, hospital = ? WHERE doctor_id = ?',
+          [doctor_name, specialist, gender, phone, biography, hospital, doctorId]
+        );
+
+        await query('DELETE FROM doctor_schedule WHERE doctor_id = ?',
+          [doctorId]
+        );
+
+        if (schedules.length > 0) {
+          const placeholders = schedules.map(() => '(?, ?)').join(',');
+          const values = schedules.flatMap(sch => [doctorId, sch.schedule_id]);
+
+          const sql = `INSERT INTO doctor_schedule (doctor_id, schedule_id) VALUES ${placeholders}`;
+          await query(sql, values);
+        }
+
+        const doctor = {
+          doctor_id: doctorId,
+          doctor_name: doctor_name,
+          specialist: specialist,
+          gender: gender,
+          phone: phone,
+          biography: biography,
+          hospital: hospital,
+        }
+
+        const statusCode = StatusCode.OK;
+        return res.status(statusCode).json(createApiResponse(doctor, statusCode, 'Doctor updated successfully.'));
+      } catch (error) {
+        console.error('Error updating doctor:', error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error updating doctor.'));
+      }
+    }
+    else if (req.method === 'DELETE') {
+      const { doctorId } = req.query;
+
+      if (!doctorId) {
+        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Doctor ID is required.'));
+      }
+
+      try {
+        // Delete from doctor_schedule
+        await query('DELETE FROM doctor_schedule WHERE doctor_id = ?', [doctorId]);
+
+        // Delete from doctor
+        const result = await query('DELETE FROM doctor WHERE doctor_id = ?', [doctorId]);
+
+        if (result.affectedRows === 0) {
+          const statusCode = StatusCode.NOT_FOUND;
+          return res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor not found.'));
+        }
+
+        const statusCode = StatusCode.OK;
+        return res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor deleted successfully.'));
+      } catch (error) {
+        console.error('Error deleting doctor:', error);
+        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error deleting doctor.'));
+      }
     }
     // Handle GET request if authenticated
     else if (req.method === 'GET') {
