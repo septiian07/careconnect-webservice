@@ -6,14 +6,21 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (!JWT_SECRET) {
     console.error('JWT_SECRET is not defined in environment variables.');
     const statusCode = StatusCode.INTERNAL_SERVER_ERROR;
-    return res.status(statusCode)
-      .json(createApiResponse(null, statusCode, 'Server configuration error.'));
+    res.status(statusCode).json(createApiResponse(null, statusCode, 'Server configuration error.'));
+    return;
   }
 
-  // Authenticate with Bearer Token
   const authHeader = req.headers.authorization;
   let token;
 
@@ -23,30 +30,28 @@ export default async function handler(req, res) {
 
   if (!token) {
     const statusCode = StatusCode.UNAUTHORIZED;
-    return res.status(statusCode)
-      .json(createApiResponse(null, statusCode, 'Access denied. No token provided or invalid format.'));
+    res.status(statusCode).json(createApiResponse(null, statusCode, 'Access denied. No token provided or invalid format.'));
+    return;
   }
 
   try {
     const decodedToken = jwt.verify(token, JWT_SECRET);
-    // Handle POST request if authenticated
+
+    // --- Handle POST request ---
     if (req.method === 'POST') {
       const { doctor_name, specialist, gender, phone, biography, hospital, schedules } = req.body;
 
-      // validateField(doctor_name);
-      // validateField(specialist);
-      // validateField(gender);
-      // validateField(phone);
-      // validateField(biography);
-      // validateField(hospital);
-      // validateField(schedules);
+      if (!doctor_name || !specialist || !gender || !phone || !biography || !hospital) {
+          res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom dokter wajib diisi.'));
+          return;
+      }
 
       if (!Array.isArray(schedules) || schedules.length === 0) {
-        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Schedules must be a non-empty array.'));
+        res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Jadwal harus berupa array yang tidak kosong.'));
+        return;
       }
 
       try {
-        // Insert into doctor
         const doctorResult = await query(
           'INSERT INTO doctor (doctor_name, specialist, gender, phone, biography, hospital) VALUES (?, ?, ?, ?, ?, ?)',
           [doctor_name, specialist, gender, phone, biography, hospital]
@@ -57,7 +62,6 @@ export default async function handler(req, res) {
         for (const sch of schedules) {
           const { schedule_id } = sch;
 
-          // Insert into doctor_schedule
           await query(
             'INSERT INTO doctor_schedule (doctor_id, schedule_id) VALUES (?, ?)',
             [doctor_id, schedule_id]
@@ -65,22 +69,34 @@ export default async function handler(req, res) {
         }
 
         const statusCode = StatusCode.CREATED;
-        return res.status(statusCode).json(createApiResponse({ doctor_id: doctor_id, doctor_name: doctor_name }, statusCode, 'Doctor added successfully.'));
+        res.status(statusCode).json(createApiResponse({ doctor_id: doctor_id, doctor_name: doctor_name }, statusCode, 'Doctor added successfully.'));
+        return;
 
       } catch (error) {
         console.error('Error add doctors:', error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error add doctors.'));
+        res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error add doctors.'));
+        return;
       }
-    } else if (req.method === 'PUT') {
+    }
+
+    // --- Handle PUT request ---
+    else if (req.method === 'PUT') {
       const { doctorId } = req.query;
 
       if (!doctorId) {
-        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Doctor ID is required.'));
+        res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Doctor ID is required.'));
+        return;
       }
       const { doctor_name, specialist, gender, phone, biography, hospital, schedules } = req.body;
 
-      if (!Array.isArray(schedules) || schedules.length === 0) {
-        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Schedules must be a non-empty array.'));
+      if (!doctor_name || !specialist || !gender || !phone || !biography || !hospital) {
+          res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom dokter wajib diisi.'));
+          return;
+      }
+
+      if (!Array.isArray(schedules)) {
+        res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Jadwal harus berupa array.'));
+        return;
       }
 
       try {
@@ -89,9 +105,7 @@ export default async function handler(req, res) {
           [doctor_name, specialist, gender, phone, biography, hospital, doctorId]
         );
 
-        await query('DELETE FROM doctor_schedule WHERE doctor_id = ?',
-          [doctorId]
-        );
+        await query('DELETE FROM doctor_schedule WHERE doctor_id = ?', [doctorId]);
 
         if (schedules.length > 0) {
           const placeholders = schedules.map(() => '(?, ?)').join(',');
@@ -112,17 +126,22 @@ export default async function handler(req, res) {
         }
 
         const statusCode = StatusCode.OK;
-        return res.status(statusCode).json(createApiResponse(doctor, statusCode, 'Doctor updated successfully.'));
+        res.status(statusCode).json(createApiResponse(doctor, statusCode, 'Doctor updated successfully.'));
+        return;
       } catch (error) {
         console.error('Error updating doctor:', error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error updating doctor.'));
+        res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error updating doctor.'));
+        return;
       }
     }
+
+    // --- Handle DELETE request ---
     else if (req.method === 'DELETE') {
       const { doctorId } = req.query;
 
       if (!doctorId) {
-        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Doctor ID is required.'));
+        res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Doctor ID is required.'));
+        return;
       }
 
       try {
@@ -134,79 +153,118 @@ export default async function handler(req, res) {
 
         if (result.affectedRows === 0) {
           const statusCode = StatusCode.NOT_FOUND;
-          return res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor not found.'));
+          res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor not found.'));
+          return;
         }
 
         const statusCode = StatusCode.OK;
-        return res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor deleted successfully.'));
+        res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor deleted successfully.'));
+        return;
       } catch (error) {
         console.error('Error deleting doctor:', error);
-        return res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error deleting doctor.'));
+        res.status(StatusCode.INTERNAL_SERVER_ERROR).json(createApiResponse(null, StatusCode.INTERNAL_SERVER_ERROR, 'Error deleting doctor.'));
+        return;
       }
     }
-    // Handle GET request if authenticated
+
+    // --- Handle GET request ---
     else if (req.method === 'GET') {
       const { doctorId } = req.query;
 
       try {
         if (doctorId) {
-          // Fetch a single doctor by doctor_id
           const doctors = await query(
-            'SELECT doctor_id, doctor_name, specialist, gender, phone, biography FROM doctor WHERE doctor_id = ?',
+            'SELECT doctor_id, doctor_name, specialist, gender, phone, biography, hospital FROM doctor WHERE doctor_id = ?',
             [doctorId]
           );
-          const schedules = await query('SELECT s.day, s.start, s.end FROM doctor d JOIN doctor_schedule ds ON d.doctor_id = ds.doctor_id JOIN schedule s ON ds.schedule_id = s.schedule_id WHERE d.doctor_id = ?',
-            [doctorId]);
+          const schedules = await query(
+            'SELECT s.schedule_id, s.day, s.start, s.end FROM doctor_schedule ds JOIN schedule s ON ds.schedule_id = s.schedule_id WHERE ds.doctor_id = ?',
+            [doctorId]
+          );
 
           if (doctors.length === 0) {
             const statusCode = StatusCode.NOT_FOUND;
-            return res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor not found.'));
+            res.status(statusCode).json(createApiResponse(null, statusCode, 'Doctor not found.'));
+            return;
           }
           const statusCode = StatusCode.OK;
           const doctor = {
             ...doctors[0],
             schedules: schedules.map(schedule => ({
+              schedule_id: schedule.schedule_id,
               day: schedule.day,
               start: schedule.start,
               end: schedule.end
             }))
           };
 
-          return res.status(statusCode).json(createApiResponse(doctor, statusCode, 'Doctor retrieved successfully.'));
+          res.status(statusCode).json(createApiResponse(doctor, statusCode, 'Doctor retrieved successfully.'));
+          return;
         } else {
-          // Fetch all doctors
           const doctors = await query('SELECT doctor_id, doctor_name, specialist, gender, phone, biography, hospital FROM doctor');
+          const doctorIds = doctors.map(doc => doc.doctor_id);
+          let allSchedules = [];
+          if (doctorIds.length > 0) {
+              const placeholders = doctorIds.map(() => '?').join(',');
+              allSchedules = await query(
+                  `SELECT ds.doctor_id, s.schedule_id, s.day, s.start, s.end FROM doctor_schedule ds JOIN schedule s ON ds.schedule_id = s.schedule_id WHERE ds.doctor_id IN (${placeholders})`,
+                  doctorIds
+              );
+          }
+
+          const schedulesMap = new Map();
+          allSchedules.forEach(schedule => {
+              if (!schedulesMap.has(schedule.doctor_id)) {
+                  schedulesMap.set(schedule.doctor_id, []);
+              }
+              schedulesMap.get(schedule.doctor_id).push({
+                  schedule_id: schedule.schedule_id,
+                  day: schedule.day,
+                  start: schedule.start,
+                  end: schedule.end
+              });
+          });
+
+          const doctorsWithSchedules = doctors.map(doc => ({
+              ...doc,
+              schedules: schedulesMap.get(doc.doctor_id) || []
+          }));
+
           const statusCode = StatusCode.OK;
-          return res.status(statusCode).json(createApiResponse(doctors, statusCode, 'Doctors retrieved successfully.'));
+          res.status(statusCode).json(createApiResponse(doctorsWithSchedules, statusCode, 'Daftar dokter berhasil diambil.'));
+          return;
         }
       } catch (dbError) {
         console.error('Database error fetching doctor(s):', dbError);
         const statusCode = StatusCode.INTERNAL_SERVER_ERROR;
-        return res.status(statusCode).json(createApiResponse({ error_details: dbError.message }, statusCode, 'An error occurred while fetching doctor data.'));
+        res.status(statusCode).json(createApiResponse({ error_details: dbError.message }, statusCode, 'An error occurred while fetching doctor data.'));
+        return;
       }
     } else {
-      res.setHeader('Allow', ['GET']);
+      res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
       const statusCode = StatusCode.METHOD_NOT_ALLOWED || 405;
-      return res.status(statusCode).json(createApiResponse(null, statusCode, `Method ${req.method} Not Allowed`));
+      res.status(statusCode).json(createApiResponse(null, statusCode, `Method ${req.method} Not Allowed`));
+      return;
     }
 
   } catch (authError) {
-    // Handle errors from jwt.verify (TokenExpiredError, JsonWebTokenError)
     console.error('JWT verification error:', authError.name, authError.message);
     const statusCode = StatusCode.UNAUTHORIZED;
     let message = 'Access denied. Invalid token.';
     if (authError.name === 'TokenExpiredError') {
       message = 'Access denied. Token has expired.';
     }
-    return res.status(statusCode)
-      .json(createApiResponse({ error_type: authError.name }, statusCode, message));
+    res.status(statusCode).json(createApiResponse({ error_type: authError.name }, statusCode, message));
+    return;
   }
 }
 
+/*
 function validateField(field) {
   if (!field) {
     const message = field + ' is required.';
     console.error(message);
-    return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, message));
+    // ...
   }
 }
+*/
