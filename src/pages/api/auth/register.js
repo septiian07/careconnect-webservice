@@ -1,10 +1,12 @@
 import { query } from '@/utils/db';
 import { createApiResponse } from '@/utils/base/baseApiResponse';
-import { StatusCode } from '@/utils/constant/statusCode'; 
+import { StatusCode } from '@/utils/constant/statusCode';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000'); 
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+  res.setHeader('Access-Control-Allow-Origin', baseUrl);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -19,9 +21,9 @@ export default async function handler(req, res) {
       return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom wajib diisi.'));
     }
 
-    const parsedRoleId = parseInt(role_id, 10); 
+    const parsedRoleId = parseInt(role_id, 10);
     if (isNaN(parsedRoleId) || parsedRoleId <= 0) {
-        return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'ID Peran tidak valid.'));
+      return res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'ID Peran tidak valid.'));
     }
 
     try {
@@ -39,7 +41,7 @@ export default async function handler(req, res) {
         [username, name, hashedPassword, parsedRoleId]
       );
 
-      const newUserId = result.insertId; 
+      const newUserId = result.insertId;
 
       return res.status(StatusCode.CREATED).json(createApiResponse({ userId: newUserId, username: username }, StatusCode.CREATED, 'User registered successfully.'));
 

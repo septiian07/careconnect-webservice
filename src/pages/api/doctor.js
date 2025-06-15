@@ -6,7 +6,9 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+  res.setHeader('Access-Control-Allow-Origin', baseUrl);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -42,8 +44,8 @@ export default async function handler(req, res) {
       const { doctor_name, specialist, gender, phone, biography, hospital, schedules } = req.body;
 
       if (!doctor_name || !specialist || !gender || !phone || !biography || !hospital) {
-          res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom dokter wajib diisi.'));
-          return;
+        res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom dokter wajib diisi.'));
+        return;
       }
 
       if (!Array.isArray(schedules) || schedules.length === 0) {
@@ -90,8 +92,8 @@ export default async function handler(req, res) {
       const { doctor_name, specialist, gender, phone, biography, hospital, schedules } = req.body;
 
       if (!doctor_name || !specialist || !gender || !phone || !biography || !hospital) {
-          res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom dokter wajib diisi.'));
-          return;
+        res.status(StatusCode.BAD_REQUEST).json(createApiResponse(null, StatusCode.BAD_REQUEST, 'Semua kolom dokter wajib diisi.'));
+        return;
       }
 
       if (!Array.isArray(schedules)) {
@@ -205,29 +207,29 @@ export default async function handler(req, res) {
           const doctorIds = doctors.map(doc => doc.doctor_id);
           let allSchedules = [];
           if (doctorIds.length > 0) {
-              const placeholders = doctorIds.map(() => '?').join(',');
-              allSchedules = await query(
-                  `SELECT ds.doctor_id, s.schedule_id, s.day, s.start, s.end FROM doctor_schedule ds JOIN schedule s ON ds.schedule_id = s.schedule_id WHERE ds.doctor_id IN (${placeholders})`,
-                  doctorIds
-              );
+            const placeholders = doctorIds.map(() => '?').join(',');
+            allSchedules = await query(
+              `SELECT ds.doctor_id, s.schedule_id, s.day, s.start, s.end FROM doctor_schedule ds JOIN schedule s ON ds.schedule_id = s.schedule_id WHERE ds.doctor_id IN (${placeholders})`,
+              doctorIds
+            );
           }
 
           const schedulesMap = new Map();
           allSchedules.forEach(schedule => {
-              if (!schedulesMap.has(schedule.doctor_id)) {
-                  schedulesMap.set(schedule.doctor_id, []);
-              }
-              schedulesMap.get(schedule.doctor_id).push({
-                  schedule_id: schedule.schedule_id,
-                  day: schedule.day,
-                  start: schedule.start,
-                  end: schedule.end
-              });
+            if (!schedulesMap.has(schedule.doctor_id)) {
+              schedulesMap.set(schedule.doctor_id, []);
+            }
+            schedulesMap.get(schedule.doctor_id).push({
+              schedule_id: schedule.schedule_id,
+              day: schedule.day,
+              start: schedule.start,
+              end: schedule.end
+            });
           });
 
           const doctorsWithSchedules = doctors.map(doc => ({
-              ...doc,
-              schedules: schedulesMap.get(doc.doctor_id) || []
+            ...doc,
+            schedules: schedulesMap.get(doc.doctor_id) || []
           }));
 
           const statusCode = StatusCode.OK;
