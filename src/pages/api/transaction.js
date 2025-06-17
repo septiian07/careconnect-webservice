@@ -162,12 +162,12 @@ export default async function handler(req, res) {
           res.status(statusCode).json(createApiResponse(transaction, statusCode, 'Transaction retrieved successfully.'));
           return;
         } else {
-          const doctors = await query(
+          const transactions = await query(
             'SELECT t.transaction_id, u.name AS user_name, d.doctor_name, d.hospital, t.date, t.time, t.method, t.status, t.note ' +
             'FROM transaction t JOIN doctor d ON t.doctor_id = d.doctor_id JOIN user u ON t.user_id = u.user_id',
           );
 
-          const transaction = doctors.map(trx => ({
+          const transaction = transactions.map(trx => ({
             ...trx,
           }));
 
@@ -176,9 +176,9 @@ export default async function handler(req, res) {
           return;
         }
       } catch (dbError) {
-        console.error('Database error fetching doctor(s):', dbError);
+        console.error('Database error fetching transaction(s):', dbError);
         const statusCode = StatusCode.INTERNAL_SERVER_ERROR;
-        res.status(statusCode).json(createApiResponse({ error_details: dbError.message }, statusCode, 'An error occurred while fetching doctor data.'));
+        res.status(statusCode).json(createApiResponse({ error_details: dbError.message }, statusCode, 'An error occurred while fetching transaction data.'));
         return;
       }
     } else {
