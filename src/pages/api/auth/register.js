@@ -4,9 +4,7 @@ import { StatusCode } from '@/utils/constant/statusCode';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
-  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-
-  res.setHeader('Access-Control-Allow-Origin', baseUrl);
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
