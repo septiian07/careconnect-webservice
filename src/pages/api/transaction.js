@@ -37,6 +37,7 @@ export default async function handler(req, res) {
 
   try {
     const decodedToken = jwt.verify(token, JWT_SECRET);
+    const userId = decodedToken.userId;
 
     // --- Handle POST request ---
     if (req.method === 'POST') {
@@ -143,8 +144,8 @@ export default async function handler(req, res) {
         if (transactionId) {
           const transactions = await query(
             'SELECT t.transaction_id, u.name AS user_name, d.doctor_name, d.hospital, t.date, t.time, t.method, t.status, t.note ' +
-            'FROM transaction t JOIN doctor d ON t.doctor_id = d.doctor_id JOIN user u ON t.user_id = u.user_id WHERE t.transaction_id = ?',
-            [transactionId]
+            'FROM transaction t JOIN doctor d ON t.doctor_id = d.doctor_id JOIN user u ON t.user_id = u.user_id WHERE t.transaction_id = ? AND t.user_id = ?',
+            [transactionId, userId]
           );
 
           if (transactions.length === 0) {
@@ -162,7 +163,8 @@ export default async function handler(req, res) {
         } else {
           const transactions = await query(
             'SELECT t.transaction_id, u.name AS user_name, d.doctor_name, d.hospital, t.date, t.time, t.method, t.status, t.note ' +
-            'FROM transaction t JOIN doctor d ON t.doctor_id = d.doctor_id JOIN user u ON t.user_id = u.user_id',
+            'FROM transaction t JOIN doctor d ON t.doctor_id = d.doctor_id JOIN user u ON t.user_id = u.user_id WHERE t.user_id = ?',
+            [userId],
           );
 
           const transaction = transactions.map(trx => ({
